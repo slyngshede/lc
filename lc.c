@@ -12,7 +12,7 @@
 #include <errno.h>
 
 #define	WIDTH	79		/* Default line width */
-#define	GAP	1		/* Minimum gap between columns */
+#define	GAP	1		    /* Minimum gap between columns */
 #define	INDENT1	4		/* Indent for multiple directories */
 #define	INDENT2	4		/* Indent for files in a category */
 #define	NFNAME	400		/* Maximum a filename can expand to */
@@ -30,13 +30,15 @@ int	fflag;			/* Do regular files */
 int	lflag;			/* Do symlinks */
 int	mflag;			/* Do multiplexor files */
 int	pflag;			/* Do pipes */
-int	allflag = 1;		/* Do all types */
+int rflag;		    /* Do repos */
+int	allflag = 1;	/* Do all types */
 int	ndir;
 int	printed = 0;		/* Set when we have printed something */
 int	maxwidth;		/* Maximum width of a filename */
 int	lwidth = WIDTH-INDENT2;
 
 struct	stat	sb;
+struct  stat	sb1;
 char	obuf[BUFSIZ];
 char	fname[NFNAME];
 
@@ -45,7 +47,7 @@ typedef	struct	ENTRY	{
 	char	e_name[DIRSIZ];
 }	ENTRY;
 
-ENTRY	*files, *links, *dirs, *blocks, *chars, *pipes, *mults;
+ENTRY	*files, *links, *dirs, *blocks, *chars, *pipes, *mults, *repos;
 
 void usage();
 void prtype(ENTRY *list, char *type);
@@ -115,6 +117,11 @@ int main(int argc, char *argv[])
 				pflag = 1;
 				allflag = 0;
 				break;
+			
+			case 'r':
+				rflag = 1;
+				allflag = 0;
+				break;
 
 			case '1':
 				oneflag = 1;
@@ -131,7 +138,7 @@ int main(int argc, char *argv[])
 		argc--;
 	}
 	if (allflag)
-		fflag = dflag = cflag = bflag = mflag = lflag = pflag = 1;
+		fflag = dflag = cflag = bflag = mflag = lflag = pflag = rflag = 1;
 	setbuf(stdout, obuf);
 	if (argc < 2) {
 		ndir = 1;
@@ -155,6 +162,7 @@ int lc(name)
 char *name;
 {
 	char *type;
+	char *repo;
 
 	if (stat(name, &sb) < 0) {
 		fprintf(stderr, "%s: not found\n", name);
@@ -162,6 +170,13 @@ char *name;
 	}
 	switch (sb.st_mode & S_IFMT) {
 	case S_IFDIR:
+		repo = malloc(strlen(name) + strlen("/.git") + 1);
+		strcpy(repo, name);
+    	strcat(repo, "/.git");
+		if(stat(repo, &sb1) == 0 && S_ISDIR(sb1.st_mode)){
+			type = "source code repository";
+			break;
+		}
 		return (lcdir(name));
 
 	case S_IFREG:
@@ -212,6 +227,7 @@ char *dname;
 	clearlist(&chars);
 	clearlist(&pipes);
 	clearlist(&mults);
+	clearlist(&repos);
 	maxwidth = 0;
 	if (ndir > 1) {
 		if (printed)
@@ -287,6 +303,7 @@ struct dirent *dp;
 	} {
 		register ENTRY *ep;
 		register ENTRY **list;
+		register char *repo;
 
 		if ((ep = (ENTRY *)malloc(sizeof (ENTRY))) == NULL) {
 			fprintf(stderr, "Out of memory\n");
@@ -303,7 +320,14 @@ struct dirent *dp;
 			break;
 
 		case S_IFDIR:
-			list = &dirs;
+			repo = malloc(strlen(fname) + strlen("/.git") + 1);
+			strcpy(repo, fname);
+    		strcat(repo, "/.git");	
+			if(stat(repo, &sb1) == 0 && S_ISDIR(sb1.st_mode)){
+				list = &repos;
+			} else {
+				list = &dirs;
+			}
 			break;
 
 		case S_IFBLK:
@@ -393,6 +417,8 @@ void prnames()
 		prtype(pipes, "Pipes");
 	if (mflag)
 		prtype(mults, "Multiplexed files");
+	if (rflag)
+		prtype(repos, "Source code repositories");
 }
 
 /*
@@ -441,6 +467,6 @@ char *type;
 
 void usage()
 {
-	fprintf(stderr, "Usage: lc [-afdcbpl] [-1] [name ...]\n");
+	fprintf(stderr, "Usage: lc [-afdcbplr] [-1] [name ...]\n");
 	exit(1);
 }
