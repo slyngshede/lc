@@ -11,7 +11,7 @@
 #include <sys/dir.h>
 #include <errno.h>
 
-#define	WIDTH	79		/* Default line width */
+#define	WIDTH	120		/* Default line width */
 #define	GAP	1		    /* Minimum gap between columns */
 #define	INDENT1	4		/* Indent for multiple directories */
 #define	INDENT2	4		/* Indent for files in a category */
@@ -19,7 +19,7 @@
 
 // from source/4.2.x/usr/include/kernel/dir.h
 //# define	DIRSIZ		14
-#define DIRSIZ MAXNAMLEN
+#define DIRSIZE MAXNAMLEN
 
 int	oneflag;		/* One per line */
 int	aflag;			/* Do all entries, including `.' and `..' */
@@ -44,7 +44,7 @@ char	fname[NFNAME];
 
 typedef	struct	ENTRY	{
 	struct	ENTRY	*e_fp;
-	char	e_name[DIRSIZ];
+	char	e_name[DIRSIZE];
 }	ENTRY;
 
 ENTRY	*files, *links, *dirs, *blocks, *chars, *pipes, *mults, *repos;
@@ -158,8 +158,7 @@ int main(int argc, char *argv[])
 /*
  * Do `lc' on a single name.
  */
-int lc(name)
-char *name;
+int lc(char *name)
 {
 	char *type;
 	char *repo;
@@ -214,8 +213,7 @@ char *name;
 /*
  * Process one directory.
  */
-int lcdir(dname)
-char *dname;
+int lcdir(char *dname)
 {
 	register struct dirent *dp;
 	register DIR *fd;
@@ -263,9 +261,7 @@ char *dname;
  * indicated directory.
  * and then sort into the appropriate table.
  */
-int doentry(dirname, dp)
-char *dirname;
-struct dirent *dp;
+int doentry(char *dirname, struct dirent *dp)
 {
 	int width = 0;
 
@@ -277,16 +273,22 @@ struct dirent *dp;
 			return (0);
 	} {
 		register char *p1, *p2;
-		register unsigned n = DIRSIZ;
+		register unsigned n = DIRSIZE;
 
 		p1 = fname;
 		p2 = dirname;
-		while (*p1++ = *p2++)
-			;
-		p1--;
+
+		strcpy(p1, p2);
+		p1 += strlen(p1);
+		p2 += strlen(p2) + 1;
+		
 		if (*p1 != '/')
+		{
 			*p1++ = '/';
+		}	
+			
 		p2 = dp->d_name;
+
 		do {
 			if (*p2 == '\0')
 				break;
@@ -298,7 +300,7 @@ struct dirent *dp;
 	if (width > maxwidth)
 		maxwidth = width;
 	if (stat(fname, &sb) < 0) {
-		prindent("%.*s: cannot stat\n", DIRSIZ, dp->d_name);
+		prindent("%.*s: cannot stat\n", DIRSIZE, dp->d_name);
 		return (1);
 	} {
 		register ENTRY *ep;
@@ -309,7 +311,7 @@ struct dirent *dp;
 			fprintf(stderr, "Out of memory\n");
 			exit (1);
 		}
-		strncpy(ep->e_name, dp->d_name, DIRSIZ);
+		strncpy(ep->e_name, dp->d_name, DIRSIZE);
 		switch (sb.st_mode & S_IFMT) {
 		case S_IFREG:
 			list = &files;
@@ -347,7 +349,7 @@ struct dirent *dp;
 			break;
 
 		default:
-			prindent("%.*s: unknown file type\n", DIRSIZ,
+			prindent("%.*s: unknown file type\n", DIRSIZE,
 			    dp->d_name);
 			return (1);
 		}
@@ -361,15 +363,13 @@ struct dirent *dp;
  * Sort the list at insertion time
  * into lexicographic order.
  */
-void addlist(lpp, ep)
-ENTRY **lpp;
-ENTRY *ep;
+void addlist(ENTRY **lpp, ENTRY *ep)
 {
 	register ENTRY *rp;
 	register ENTRY *pp;
 
 	for (pp=NULL, rp=*lpp; rp!=NULL; pp=rp, rp=rp->e_fp)
-		if (strncmp(ep->e_name, rp->e_name, DIRSIZ) <= 0)
+		if (strncmp(ep->e_name, rp->e_name, DIRSIZE) <= 0)
 			break;
 	if (pp == NULL) {
 		ep->e_fp = *lpp;
@@ -384,8 +384,7 @@ ENTRY *ep;
  * Clear out the list, a pointer to which is
  * the argument.
  */
-void clearlist(lpp)
-ENTRY **lpp;
+void clearlist(ENTRY **lpp)
 {
 	register ENTRY *rp, *op;
 
@@ -424,9 +423,7 @@ void prnames()
 /*
  * Print out one type of files
  */
-void prtype(list, type)
-ENTRY *list;
-char *type;
+void prtype(ENTRY *list, char *type)
 {
 	register char *cp;
 	register ENTRY *ep;
@@ -451,11 +448,11 @@ char *type;
 			printf("%*s", INDENT2, "");
 			prindent_empty();
 		}
-		n = DIRSIZ;
+		n = DIRSIZE;
 		for (cp=ep->e_name; *cp!='\0' && n; n--)
 			putchar(*cp++);
 		if (++i!=npl && ep->e_fp!=NULL) {
-			n -= DIRSIZ-GAP-maxwidth;
+			n -= DIRSIZE - GAP - maxwidth;
 			while (n-- > 0)
 				putchar(' ');
 		} else {
