@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <sys/dir.h>
 #include <errno.h>
+#include <sys/ioctl.h>
 
 #define	WIDTH	120		/* Default line width */
 #define	GAP	1		    /* Minimum gap between columns */
@@ -79,6 +80,11 @@ int main(int argc, char *argv[])
 	register char *ap;
 	register int i;
 	register int estat = 0;
+
+	struct winsize w;
+    ioctl(0, TIOCGWINSZ, &w);
+
+	lwidth = w.ws_col - INDENT2;
 
 	while (argc>1 && *argv[1]=='-') {
 		for (ap = &argv[1][1]; *ap!='\0'; ap++)
